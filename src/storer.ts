@@ -5,6 +5,7 @@ export default class Storer {
 
     constructor(platform: string) {
         this.#endpoint = `http://localhost:8080/${platform}`;
+        console.log(`Initialized storer for platform: ${platform}`);
     }
 
     /**
@@ -13,6 +14,7 @@ export default class Storer {
      * @returns {Promise<boolean>} Whether the operation was successful
      */
     async storeArticle(article: NewArticleDto): Promise<boolean> {
+        console.log(`Attempting to store article: ${article.id}`);
         try {
             const response = await fetch(`${this.#endpoint}/articles`, {
                 method: "POST",
@@ -29,6 +31,7 @@ export default class Storer {
                 return false;
             }
             
+            console.log(`Successfully stored article: ${article.id}`);
             return true;
         } catch (error) {
             console.error(`Error storing article ${article.id}:`, error);
@@ -43,6 +46,7 @@ export default class Storer {
      * @returns {Promise<boolean>} Whether the operation was successful
      */
     async storeComment(articleId: string, comment: NewCommentDto): Promise<boolean> {
+        console.log(`Attempting to store comment: ${comment.id} for article: ${articleId}`);
         try {
             const response = await fetch(`${this.#endpoint}/articles/${articleId}/comments`, {
                 method: "POST",
@@ -57,6 +61,7 @@ export default class Storer {
                 return false;
             }
             
+            console.log(`Successfully stored comment: ${comment.id}`);
             return true;
         } catch (error) {
             console.error(`Error storing comment ${comment.id}:`, error);
@@ -72,6 +77,7 @@ export default class Storer {
      * @returns {Promise<boolean>} Whether the operation was successful
      */
     async storeReply(articleId: string, commentId: string, reply: NewReplyDto): Promise<boolean> {
+        console.log(`Attempting to store reply: ${reply.id} for comment: ${commentId}`);
         try {
             const response = await fetch(
                 `${this.#endpoint}/articles/${articleId}/comments/${commentId}/replies`,
@@ -89,6 +95,7 @@ export default class Storer {
                 return false;
             }
             
+            console.log(`Successfully stored reply: ${reply.id}`);
             return true;
         } catch (error) {
             console.error(`Error storing reply ${reply.id}:`, error);

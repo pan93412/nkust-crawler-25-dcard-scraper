@@ -41,12 +41,15 @@ const COMMENTS_PER_PAGE = 20;
 
 // Initialize the storer
 const storer = new Storer('dcard');
+console.log('Dcard scraper initialized');
 
 /**
  * Scrapes article data from the current page
  * @returns {NewArticleDto} The article data
  */
 function scrapeArticleData(): NewArticleDto {
+  console.log('Starting to scrape article data from the page...');
+  
   const title = document.querySelector<HTMLHeadingElement>("h1")?.innerText;
   const date = document.querySelector<HTMLTimeElement>("article time")?.dateTime;
   const content = document.querySelector<HTMLDivElement>(
@@ -56,9 +59,12 @@ function scrapeArticleData(): NewArticleDto {
   const articleId = url?.split("/").pop();
 
   if (!title || !date || !content || !url || !articleId) {
+    console.error('Missing required data in DOM for article scraping');
     throw new Error("Failed to scrape article data: missing required data");
   }
 
+  console.log(`Found article: "${title}" (ID: ${articleId})`);
+  
   return {
     id: articleId,
     url,
@@ -101,15 +107,18 @@ async function fetchComments(articleId: string): Promise<NewCommentDto[]> {
   const allComments: NewCommentDto[] = [];
   let nextKey: string | null = null;
   
+  console.log(`Starting to fetch comments for article: ${articleId}`);
+  
   for (let i = 0; i < MAX_COMMENT_PAGES; i++) {
     console.log(`Extracting comment page (${i + 1}/${MAX_COMMENT_PAGES})...`);
 
     try {
-      const response = await fetch(
-        `https://www.dcard.tw/service/api/v2/commentRanking/posts/${articleId}/comments?negative=downvote${
-          nextKey ? `&nextKey=${nextKey}` : ""
-        }`
-      );
+      const requestUrl = `https://www.dcard.tw/service/api/v2/commentRanking/posts/${articleId}/comments?negative=downvote${
+        nextKey ? `&nextKey=${nextKey}` : ""
+      }`;
+      console.log(`Fetching from: ${requestUrl}`);
+      
+      const response = await fetch(requestUrl);
       
       if (!response.ok) {
         console.error(`Failed to fetch comments page ${i + 1}: ${response.statusText}`);
@@ -117,6 +126,7 @@ async function fetchComments(articleId: string): Promise<NewCommentDto[]> {
       }
       
       const data: DcardCommentResponse = await response.json();
+      console.log(`Received ${data.items.length} comments from API`);
       
       for (const item of data.items) {
         const comment: NewCommentDto = {
@@ -128,6 +138,7 @@ async function fetchComments(articleId: string): Promise<NewCommentDto[]> {
         };
         
         allComments.push(comment);
+        console.log(`Processing comment: ${item.id} with ${item.subCommentCount} replies`);
         
         // Store the comment
         await storer.storeComment(articleId, comment);
@@ -141,7 +152,12 @@ async function fetchComments(articleId: string): Promise<NewCommentDto[]> {
       nextKey = data.nextKey;
       
       // If there are no more comments, break the loop
-      if (!nextKey) break;
+      if (!nextKey) {
+        console.log('No more comments available (nextKey is null)');
+        break;
+      } else {
+        console.log(`Next page token: ${nextKey}`);
+      }
       
     } catch (error) {
       console.error(`Error fetching comments page ${i + 1}:`, error);
@@ -149,6 +165,7 @@ async function fetchComments(articleId: string): Promise<NewCommentDto[]> {
     }
   }
   
+  console.log(`Finished fetching all comments. Total: ${allComments.length}`);
   return allComments;
 }
 
@@ -162,9 +179,10 @@ async function fetchAndStoreReplies(articleId: string, commentId: string): Promi
   console.log(`Extracting replies for comment ${commentId}...`);
   
   try {
-    const response = await fetch(
-      `https://www.dcard.tw/service/api/v2/posts/${articleId}/comments?parentId=${commentId}&limit=${COMMENTS_PER_PAGE}`
-    );
+    const requestUrl = `https://www.dcard.tw/service/api/v2/posts/${articleId}/comments?parentId=${commentId}&limit=${COMMENTS_PER_PAGE}`;
+    console.log(`Fetching replies from: ${requestUrl}`);
+    
+    const response = await fetch(requestUrl);
     
     if (!response.ok) {
       console.error(`Failed to fetch replies for comment ${commentId}: ${response.statusText}`);
@@ -172,6 +190,8 @@ async function fetchAndStoreReplies(articleId: string, commentId: string): Promi
     }
     
     const data: DcardReplyResponse = await response.json();
+    console.log(`Received ${data.length} replies for comment ${commentId}`);
+    
     const replies: NewReplyDto[] = [];
     
     const storePromises = data.map(async (item) => {
@@ -188,6 +208,8 @@ async function fetchAndStoreReplies(articleId: string, commentId: string): Promi
     });
     
     await Promise.all(storePromises);
+    console.log(`Stored ${replies.length} replies for comment ${commentId}`);
+    
     return replies;
     
   } catch (error) {
@@ -200,12 +222,16 @@ async function fetchAndStoreReplies(articleId: string, commentId: string): Promi
  * Main function to extract and store article data
  */
 async function main() {
+  console.log('Starting Dcard article extraction process...');
+  
   try {
     // 1. Scrape article data
     const article = scrapeArticleData();
-    console.log(`Starting extraction for article: ${article.id}`);
+    console.log(`Starting extraction for article: ${article.id} - "${article.title}"`);
+    console.log(`Article content length: ${article.content.length} characters`);
     
     // 2. Store the article
+    console.log('Storing article data...');
     const articleStored = await storer.storeArticle(article);
     if (!articleStored) {
       console.error("Failed to store article. Aborting extraction.");
@@ -213,7 +239,9 @@ async function main() {
     }
     
     // 3. Fetch and store comments (which will also fetch and store replies)
-    await fetchComments(article.id);
+    console.log('Starting to fetch and store comments...');
+    const comments = await fetchComments(article.id);
+    console.log(`Successfully processed ${comments.length} comments in total`);
     
     console.log("Extraction completed successfully!");
   } catch (error) {
@@ -222,4 +250,7 @@ async function main() {
 }
 
 // Execute the main function
-main().catch(console.error);
+console.log('Dcard scraper script started');
+main().catch(console.error).finally(() => {
+  console.log('Dcard scraper script execution finished');
+});
