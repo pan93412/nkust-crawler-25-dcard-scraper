@@ -2,4 +2,4 @@
 
 set -eux
 
-pnpm esbuild src/*.ts --bundle --platform=browser --outdir=dist
+pnpm esbuild src/dcard.ts --bundle --platform=browser --outdir=dist

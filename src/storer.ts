@@ -3,7 +3,7 @@ import { NewArticleDto, NewCommentDto, NewReplyDto } from './interface';
 export default class Storer {
     #endpoint: string;
 
-    constructor(private readonly platform: string) {
+    constructor(platform: string) {
         this.#endpoint = `http://localhost:8080/${platform}`;
     }
 
