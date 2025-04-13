@@ -5,14 +5,16 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "bash build.sh"
+    "build": "bash build.sh",
+    "format": "biome format --write src",
+    "lint": "biome lint --write src"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.8.0",
   "devDependencies": {
-    "biome": "^0.3.3",
+    "@biomejs/biome": "^1.9.4",
     "esbuild": "^0.25.2",
     "typescript": "^5.8.3"
   }
