@@ -1,10 +1,12 @@
 import type { NewArticleDto, NewCommentDto, NewReplyDto } from "./interface";
 
+const ENDPOINT = "http://localhost:8080";
+
 export default class Storer {
 	#endpoint: string;
 
 	constructor(platform: string) {
-		this.#endpoint = `http://localhost:8080/${platform}`;
+		this.#endpoint = `${ENDPOINT}/${platform}`;
 		console.log(`Initialized storer for platform: ${platform}`);
 	}
 
