@@ -39,6 +39,46 @@ interface DcardReplyResponse
 // Constants
 const MAX_COMMENT_PAGES = 3;
 const COMMENTS_PER_PAGE = 20;
+const API_REQUEST_DELAY_MS = 500; // Add delay between requests to avoid rate limiting
+const RATE_LIMIT_PAUSE_MS = 5000; // Pause for 5 seconds when rate limited
+
+/**
+ * Simple delay function to prevent rate limiting
+ * @param {number} ms - Milliseconds to delay
+ * @returns {Promise<void>}
+ */
+const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms + (Math.random() * 200)));
+
+/**
+ * Makes a fetch request with retry logic for rate limiting
+ * @param {string} url - URL to fetch
+ * @param {number} retries - Number of retries allowed (default: 3)
+ * @returns {Promise<Response>} - Fetch response
+ */
+async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
+  try {
+    const response = await fetch(url);
+    
+    // If rate limited (429)
+    if (response.status === 429) {
+      if (retries > 0) {
+        console.log(`Rate limited (429). Pausing for ${RATE_LIMIT_PAUSE_MS/1000} seconds before retry...`);
+        await delay(RATE_LIMIT_PAUSE_MS);
+        console.log(`Retrying request (${retries} retries left)...`);
+        return fetchWithRetry(url, retries - 1);
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    if (retries > 0) {
+      console.error(`Fetch error: ${error}. Retrying in ${RATE_LIMIT_PAUSE_MS/1000} seconds...`);
+      await delay(RATE_LIMIT_PAUSE_MS);
+      return fetchWithRetry(url, retries - 1);
+    }
+    throw error;
+  }
+}
 
 // Initialize the storer
 const storer = new Storer("dcard");
@@ -118,12 +158,18 @@ async function fetchComments(articleId: string): Promise<NewCommentDto[]> {
     console.log(`Extracting comment page (${i + 1}/${MAX_COMMENT_PAGES})...`);
 
     try {
+      // Add delay before each API request except the first one
+      if (i > 0) {
+        console.log(`Waiting ${API_REQUEST_DELAY_MS}ms before next request to avoid rate limiting...`);
+        await delay(API_REQUEST_DELAY_MS);
+      }
+
       const requestUrl = `https://www.dcard.tw/service/api/v2/commentRanking/posts/${articleId}/comments?negative=downvote${
         nextKey ? `&nextKey=${nextKey}` : ""
       }`;
       console.log(`Fetching from: ${requestUrl}`);
 
-      const response = await fetch(requestUrl);
+      const response = await fetchWithRetry(requestUrl);
 
       if (!response.ok) {
         console.error(
@@ -190,10 +236,14 @@ async function fetchAndStoreReplies(
   console.log(`Extracting replies for comment ${commentId}...`);
 
   try {
+    // Add delay before fetching replies to avoid rate limiting
+    console.log(`Waiting ${API_REQUEST_DELAY_MS}ms before fetching replies to avoid rate limiting...`);
+    await delay(API_REQUEST_DELAY_MS);
+    
     const requestUrl = `https://www.dcard.tw/service/api/v2/posts/${articleId}/comments?parentId=${commentId}&limit=${COMMENTS_PER_PAGE}`;
     console.log(`Fetching replies from: ${requestUrl}`);
 
-    const response = await fetch(requestUrl);
+    const response = await fetchWithRetry(requestUrl);
 
     if (!response.ok) {
       console.error(
